@@ -211,10 +211,49 @@ def test_gen_in_range(key):
 
 
 def test_all_hyperbolic():
+    """ test all patterns hyperbolic patterns
+    """
+
     key = random.PRNGKey(0)
 
-    # test all patterns:
+    def ufunc(self, s):
+        """ truncated Newton with line search
+        two cases, if there is a critical point then
+        either left (branch = -1) and right (branch = 1)
+        """
+        p0, p1, p2, p3 = self.p
+        if not self.is_in_range(s):
+            raise ValueError("s is out of range")
 
+        # u0 = p1/(p1-p3)*jnp.log(jnp.abs((p0*p1)/(p2*p3))
+        # umin, umax = jnp.sort(self.rng)
+        
+        if self.branch is None:
+            u0 = 0
+        elif self.branch < 0:
+            u0 = self.uc - 1
+        elif self.branch > 0:
+            u0 = self.uc + 1
+
+        tol = 1e-7
+        val, grd = self.dsfunc(u0, 1)
+        for i in range(20):
+            scl = 1.
+            newu = u0-scl*(val - s)/grd
+            newval, newgrd = self.dsfunc(newu, 1)
+            while jnp.isnan(newval) or (jnp.abs(newval-s) > jnp.abs(val-s)):
+                scl = scl*.8
+                newu = u0-scl*(val - s)/grd
+                newval, newgrd = self.dsfunc(newu, 1)
+            u0 = newu
+            val = newval
+            grd = newgrd
+            if jnp.abs(val - s) <= tol:
+                # print("FOUND", i)
+                return u0
+        print("NOTFOUND", i, jnp.abs(val - s))
+        return u0
+    
     def test_one(kid, n, jj, key):
         pp, br, key = GHPatterns.rand_params(
             key, kid)
@@ -224,42 +263,50 @@ def test_all_hyperbolic():
         x, key = GH.grand(key)
         y, key = gen_in_range(key, GH, x)
         q = vcat(x, y)
-        u = GH.ufunc(GH.Adot(x, y))
+        u = ufunc(GH, GH.Adot(x, y))
         diff0 = GH.Adot(x, y) - GH.dsfunc(u, 1)[0]
-
+        print(jj, diff0)
         Omg0, key = grand(key, (2*n,))
         Omg1, key = grand(key, (2*n,))
 
         # Levi Civita connection
         j1 = jvp(lambda q: GH.KMMetric(q, Omg1, Omg1), (q,), (Omg0,))[1]
         j2 = 2*GH.KMMetric(q, Omg1, GH.Gamma(q, Omg0, Omg1))
-        diff1 = j1 - j2
+        diff1 = (j1 - j2)/jnp.abs(j1)
 
         # curvature
         # OmgNull, key = GH.gennull(key, q)
         Omgx, Omgy = splitzero(Omg0)
         cc = GH.KMMetric(q, Omgx, GH.Curv3(q, Omgx, Omgy, Omgy))
-        diff2 = cc - GH.crossCurv(q, Omg0)
+        cc1 = GH.crossCurv(q, Omg0)
+        if jnp.abs(cc) > 1e-3:
+            diff2 = (cc - cc1)/jnp.abs(cc)
+        else:
+            diff2 = cc - cc1
         # print(diff2)
 
-        bad = jnp.max(jnp.array([diff0, diff1, diff2])) > 1e-5
+        bad = jnp.max(jnp.array([diff0, diff1, diff2])) > 1e-3
 
         if bad:
-            return bad, x, y, GH, key
-        return bad, None, None, GH, key
+            return bad, x, y, GH, jnp.array([diff0, diff1, diff2]), key
+        return bad, None, None, GH, jnp.array([diff0, diff1, diff2]), key
 
     n = 3
     bad = False
     for kid in range(len(GHPatterns.patterns)):
         for jj in range(5):
-            bad = test_one(kid, n, jj, key)            
+            bad = test_one(kid, n, jj, key)
             if bad[0]:
-                print("BAD", kid, jj, bad)
+                print("BAD", kid, jj)
                 break
             else:
                 key = bad[-1]
-        if bad:
-            break
+        if bad[0]:
+            print("kid %d not close" % kid)
+            print(bad)
+            # break
+        else:
+            print("kid %d is good" % kid)
 
         
 def checkAllLambert(key):

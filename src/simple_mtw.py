@@ -942,6 +942,45 @@ class GenHyperbolicSimpleMTW(baseSimpleMTW):
             raise ValueError("s is out of range")
 
         # u0 = p1/(p1-p3)*jnp.log(jnp.abs((p0*p1)/(p2*p3))
+        # umin, umax = jnp.sort(self.rng)
+        
+        if self.branch is None:
+            u0 = 0
+        elif self.branch < 0:
+            u0 = self.uc - 1
+        elif self.branch > 0:
+            u0 = self.uc + 1
+
+        tol = 1e-7
+        val, grd = self.dsfunc(u0, 1)
+        for i in range(20):
+            scl = 1.
+            newu = u0-scl*(val - s)/grd
+            newval, newgrd = self.dsfunc(newu, 1)
+            while jnp.isnan(newval) or (jnp.abs(newval-s) > jnp.abs(val-s)):
+                scl = scl*.8
+                newu = u0-scl*(val - s)/grd
+                newval, newgrd = self.dsfunc(newu, 1)
+            u0 = newu
+            val = newval
+            grd = newgrd
+            if jnp.abs(val - s) <= tol:
+                # print("FOUND", i)
+                return u0
+        print("NOTFOUND", i, jnp.abs(val - s))
+        return u0
+    
+
+    def _ufunc_bad(self, s):
+        """ truncated Newton with line search
+        two cases, if there is a critical point then
+        either left (branch = -1) and right (branch = 1)
+        """
+        p0, p1, p2, p3 = self.p
+        if not self.is_in_range(s):
+            raise ValueError("s is out of range")
+
+        # u0 = p1/(p1-p3)*jnp.log(jnp.abs((p0*p1)/(p2*p3))
         if self.branch is None:
             u0 = 0
         elif self.branch < 0:
