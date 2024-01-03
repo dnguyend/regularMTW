@@ -1,5 +1,5 @@
 # regularMTW
-Project for new examples satisfying Ma-Trudinger-Wang condition
+Project for new examples satisfying Ma-Trudinger-Wang condition. The code in this repository illustrates the paper [Families of costs with zero and nonnegative MTW tensor in optimal transport](http://arxiv.org/abs/2401.00953)
 
 The folder src contains the main library for the examples.
 * The file src/simple_mtw.py contains the main class.
