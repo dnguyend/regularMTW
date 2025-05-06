@@ -969,7 +969,6 @@ class GenHyperbolicSimpleMTW(baseSimpleMTW):
                 return u0
         print("NOTFOUND", i, jnp.abs(val - s))
         return u0
-    
 
     def _ufunc_bad(self, s):
         """ truncated Newton with line search

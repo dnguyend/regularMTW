@@ -1,9 +1,8 @@
-
+""" various util files
+"""
 import jax.numpy as jnp
 import jax.numpy.linalg as jla
-
-# from jax.config import config
-# config.update("jax_enable_x64", True)
+from jax import random
 
 
 def asym(mat):
@@ -27,6 +26,21 @@ def Lyapunov(A, B):
 
 def vcat(x, y):
     return jnp.concatenate([x, y], axis=0)
+
+
+def cz(mat):
+    return jnp.max(jnp.abs(mat))
+
+
+def grand(key, dims):
+    key, sk = random.split(key)
+    return random.normal(sk, dims), key
+
+
+def splitzero(v):
+    n = v.shape[0]//2
+    zr = jnp.zeros(n)
+    return vcat(v[:n], zr), vcat(zr, v[n:])
 
 
 def projF(x, omg):
@@ -101,8 +115,53 @@ def LambertW(x, branch=0, maxiter=10):
     return ww, maxiter
 
 
+def bisect_newton(func, x1, x2, maxiter=20, tol=1e-13):
+    # float df, dx, dxold, f, fh, fl;
+    # float temp, xh, xl, rts;
 
+    fl, _ = func(x1)
+    fh, _ = func(x2)
+    # print(f"{x1} {fl} {x2} {fh}")
+    if ((fl > 0.0) and (fh > 0.0)) or ((fl < 0.0) and (fh < 0.0)):
+        raise ValueError("Root must be bracketed in rtsafe")
+    if fl == 0.0:
+        return x1, 0, None
+    if fh == 0.0:
+        return x2, 0, None
+    if fl < 0.0:
+        xl = x1
+        xh = x2
+    else:
+        xh = x1
+        xl = x2
+    rts = 0.5*(x1 + x2)
+    dxold = jnp.abs(x2 - x1)
+    dx = dxold
+    f, df = func(rts)
+    for j in jnp.arange(maxiter):
+        if (((rts - xh)*df - f)*((rts - xl)*df - f) > 0) \
+           or (jnp.abs(f) > 0.5*jnp.abs(dxold*df)):
+            dxold = dx
+            dx = 0.5*(xh - xl)
+            rts = xl + dx
+            # print("in bisect")
+            if xl == rts:
+                return rts, j+1, None
+        else:
+            dxold = dx
+            dx = f / df
+            temp = rts
+            rts -= dx
+            # print("in newton")
+            if (temp == rts):
+                return rts, j+1, None
 
-
-
-
+        if jnp.abs(dx) < tol:
+            return rts, j+1, None
+        f, df = func(rts)
+        if (f < 0.0):
+            xl = rts
+        else:
+            xh = rts
+        # print(f"{rts} {xl} {xh} {f} {df}")
+    return rts, j, "Maximum number of iterations exceeded in rtsafe"
