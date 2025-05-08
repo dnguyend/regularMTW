@@ -512,6 +512,41 @@ class PtHyperbolic(basePotential):
                 + g.dot(xix3)*xix1.dot(g)*x.dot(hphi(x, xix2))
             )
 
+    def GammaDiv1(self, x, xi1, xi2):
+        """ Primal Gamma of the divergence
+        """
+        r = self.mtw.p[-1]
+        g = self.gradphi(x)
+        return - r**2*g.dot(xi1)*g.dot(xi2)*x\
+            - r**2*x.dot(g)*g.dot(xi2)*xi1 \
+            - r**2*x.dot(g)*g.dot(xi1)*xi2
+
+    def Curv13(self, x, xi1, xi2, xi3):
+        """ Curvature of the primal connection
+        """
+        r = self.mtw.p[-1]
+        
+        g = self.gradphi(x)
+        hh = self.hessphi
+        xg = x.dot(g)
+        ret = - r**2*g.dot(xi2)*hh(x, xi1).dot(xi3)*x\
+            + r**2*g.dot(xi1)*hh(x, xi2).dot(xi3)*x\
+            \
+            + r**2*x.dot(hh(x, xi2))*g.dot(xi3)*xi1 \
+            + r**2*x.dot(g)*hh(x, xi2).dot(xi3)*xi1 \
+            + 2*r**4*xg**2*g.dot(xi2)*g.dot(xi3)*xi1 \
+            \
+            - r**2*x.dot(hh(x, xi1))*g.dot(xi3)*xi2 \
+            - r**2*x.dot(g)*hh(x, xi1).dot(xi3)*xi2 \
+            - 2*r**4*xg**2*g.dot(xi1)*g.dot(xi3)*xi2 \
+            \
+            - r**2*x.dot(hh(x, xi1))*g.dot(xi2)*xi3 \
+            + r**2*x.dot(hh(x, xi2))*g.dot(xi1)*xi3 \
+
+        return ret
+    
+    
+
 
 class PtPow(PtHyperbolic):
     def __init__(self, pw, mtw):
